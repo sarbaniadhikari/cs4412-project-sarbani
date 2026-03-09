@@ -1,0 +1,112 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{titlesec}
+\usepackage{enumitem}
+
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+% Tighter formatting
+\titleformat{\section}{\normalfont\large\bfseries\centering}{\Roman{section}.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\normalsize\itshape}{\Alph{subsection}.}{0.5em}{}
+\setlist{nosep,leftmargin=*}
+\setlength{\parskip}{0.3em}
+
+\title{\Large\bfseries Initial Implementation: Spotify Audio Features and Natural Song Clusters}
+
+\author{Sarbani Adhikari\\
+\small CS 4412: Data Mining\\
+\small Kennesaw State University --- sadhika7@students.kennesaw.edu}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document summarizes the initial implementation phase of the project. Building on the proposal, the goal was to explore the Spotify Tracks Dataset through EDA, preprocess the data, apply PCA, and run K-Means clustering to find natural groupings of songs based on audio features.
+
+\section{Key EDA Insights}
+
+The dataset contains 114,000 tracks across 114 genres. Danceability and energy are roughly normally distributed around 0.55 to 0.65. Instrumentalness and speechiness are heavily right-skewed since most songs have vocals. Acousticness looks bimodal, meaning songs tend to be either mostly acoustic or mostly produced.
+
+The correlation analysis showed a strong positive relationship between energy and loudness, and a strong negative one between energy and acousticness. Most other features are fairly independent, meaning each contributes different information to clustering.
+
+When comparing genres, classical music stands out with high acousticness and low energy, while metal is the opposite. Pop, dance, and electronic overlap quite a bit, suggesting audio-based clustering might group them together despite different genre labels.
+
+\section{Preprocessing Decisions}
+
+Only 1 row each was missing values in artist, album name, and track name. No audio features had missing values. These rows were dropped.
+
+There were 24,259 duplicate track IDs, which are tracks appearing under multiple genre labels. Duplicates were removed (keeping first occurrence) to avoid inflating cluster sizes.
+
+Outliers found in speechiness and liveness via the IQR method were kept since they represent legitimate variation (spoken-word tracks, live recordings).
+
+All 9 audio features were z-score standardized before clustering. Without this, loudness (dB) and tempo (BPM) would dominate the 0 to 1 scaled features in distance calculations.
+
+\section{First Mining Results}
+
+\subsection{PCA: Latent Dimensions}
+PC1 loads on energy and loudness versus acousticness, capturing an acoustic-to-produced axis. PC2 picks up danceability and valence. It takes several components to reach 80\% variance, confirming the feature space is genuinely multidimensional.
+
+\subsection{K-Means Clustering ($k=5$)}
+Using the Elbow Method and Silhouette Scores, $k=5$ was selected. Figure~\ref{fig:clusters} shows the clusters in PCA space. The five clusters have distinct profiles:
+\begin{itemize}
+    \item High energy, loud, low acousticness (rock/metal)
+    \item Danceable, moderate energy, higher valence (pop/dance)
+    \item Quiet, acoustic, often instrumental (classical/ambient/folk)
+    \item Mid-range across most features (mainstream middle)
+    \item High speechiness with strong danceability (hip-hop/rap)
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig11_clusters_pca.png}
+\caption{K-Means clusters ($k=5$) in PCA space. Black X markers show centroids.}
+\label{fig:clusters}
+\end{figure}
+
+\subsection{Genre Purity Analysis}
+Figure~\ref{fig:heatmap} shows how the top 12 genres distribute across clusters. Most genres do not map cleanly to one cluster. Pop and electronic tracks frequently share a cluster due to similar audio profiles despite different labels, confirming that audio features reveal cross-genre patterns.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig14_genre_cluster_heatmap.png}
+\caption{Genre distribution across clusters (row-normalized).}
+\label{fig:heatmap}
+\end{figure}
+
+\section{Surprises and Limitations}
+
+Pop and electronic genres overlap substantially, suggesting Spotify's labels do not always reflect sonic similarity. The acoustic cluster is very cohesive, making acoustic production one of the strongest differentiators.
+
+Limitations include K-Means assuming spherical clusters, the somewhat subjective choice of $k=5$, audio features not capturing cultural or lyrical aspects of genre, and some niche genres lacking enough tracks for meaningful patterns.
+
+\section{Plan for Advanced Analysis}
+
+\begin{enumerate}
+    \item \textbf{DBSCAN:} Compare with K-Means using density-based clustering that can find arbitrary shapes and flag noise points.
+    \item \textbf{Decision Trees:} Train on cluster labels to generate interpretable rules for each cluster.
+    \item \textbf{Anomaly Detection:} Investigate DBSCAN noise points and songs far from centroids.
+    \item \textbf{Genre Grouping:} Group 114 genres into broader families (e.g., rock/metal/punk) for more meaningful comparison.
+\end{enumerate}
+
+\section{Repository}
+
+\begin{itemize}
+    \item \textbf{URL:} \url{https://github.com/sarbaniadhikari/cs4412-project-sarbani}
+    \item \textbf{Structure:} \texttt{data/}, \texttt{notebooks/}, \texttt{docs/}, \texttt{outputs/figures/}
+\end{itemize}
+
+\begin{thebibliography}{00}
+\bibitem{b1} M. Pandya, ``Spotify Tracks Dataset,'' Kaggle, 2022. Available: \url{https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset}
+\end{thebibliography}
+
+\end{document}
