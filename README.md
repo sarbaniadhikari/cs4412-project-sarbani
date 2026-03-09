@@ -126,12 +126,3 @@ cs4412-project-sarbani/
 | scikit-learn | Clustering, PCA, preprocessing, evaluation metrics |
 | mlxtend | Association rules (part 3) |
 | jupyter | Interactive notebook environment |
-
-## References
-
-1. M. Pandya, "Spotify Tracks Dataset," Kaggle, 2022. [Link](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset)
-2. Zaki & Meira, *Data Mining and Machine Learning*. [Free PDF](https://dataminingbook.info)
-
-## License
-
-This project is for academic purposes as part of CS 4412 at Kennesaw State University.
