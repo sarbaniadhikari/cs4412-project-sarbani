@@ -1,0 +1,169 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{titlesec}
+\usepackage{enumitem}
+
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+% Tighter formatting
+\titleformat{\section}{\normalfont\large\bfseries\centering}{\Roman{section}.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\normalsize\itshape}{\Alph{subsection}.}{0.5em}{}
+\setlist{nosep,leftmargin=*}
+\setlength{\parskip}{0.3em}
+
+\title{\Large\bfseries Complete Implementation: Spotify Audio Features and Natural Song Clusters}
+
+\author{Sarbani Adhikari\\
+\small CS 4412: Data Mining\\
+\small Kennesaw State University --- sadhika7@students.kennesaw.edu}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document covers the complete implementation phase of the project. Building on the initial exploration, which established K-Means clustering and PCA on the Spotify Tracks Dataset, this phase adds DBSCAN clustering, decision tree classification, and anomaly detection with Local Outlier Factor (LOF).
+
+The data pipeline from the initial exploration was kept as-is: 89,740 tracks after deduplication, 9 audio features standardized with z-scores. K-Means with $k=5$ produced five clusters with a silhouette score of about 0.18, and PCA identified two main axes: acoustic vs produced (PC1) and upbeat vs moody (PC2). The initial exploration also found that pop, electronic, and dance tracks overlapped a lot in audio space, while the acoustic/classical cluster was the most cohesive group. All of that carries forward here.
+
+The goal was functional completeness: every technique runs end-to-end, all three discovery questions have answers, and the results are ready for polish in the final report.
+
+\section{Analytical Expansion}
+
+\subsection{DBSCAN Clustering}
+
+DBSCAN was run on a 20,000-track random sample since the full 89,740 rows made it way too slow in 9 dimensions. Several eps and min\_samples combos were tested (Table~\ref{tab:dbscan}). Low eps values find more clusters but mark a lot of data as noise. At eps=2.5+ everything collapses into one cluster. We went with eps=2.0, min\_samples=15, which found 3 clusters and 144 noise points.
+
+\begin{table}[htbp]
+\caption{DBSCAN Parameter Search (20k sample)}
+\label{tab:dbscan}
+\centering
+\footnotesize
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{eps} & \textbf{min\_samples} & \textbf{Clusters} & \textbf{Noise (\%)} \\
+\midrule
+1.5 & 10 & 3 & 2.3 \\
+1.5 & 15 & 2 & 2.9 \\
+1.5 & 20 & 2 & 3.2 \\
+2.0 & 10 & 2 & 0.6 \\
+\textbf{2.0} & \textbf{15} & \textbf{3} & \textbf{0.7} \\
+2.0 & 20 & 2 & 0.9 \\
+2.5 & 10 & 1 & 0.2 \\
+2.5 & 15 & 1 & 0.2 \\
+3.0 & 10 & 1 & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+With those parameters, DBSCAN produced one huge cluster (roughly 19,700 tracks), a second one of about 150, and a third of just 25. This is pretty different from K-Means: K-Means forces 5 balanced groups, but DBSCAN says most of the data is really just one big continuous region. The K-Means structure is more about carving up a dense blob than finding natural gaps.
+
+The two small clusters turned out to be interesting though. Cluster 1 (150 tracks) has mean speechiness of 0.90 and liveness of 0.78, mostly live comedy and spoken word. Cluster 2 (25 tracks) is extreme: near-max energy (0.98), near-zero valence (0.005), high instrumentalness (0.92), probably droning noise recordings from sleep and world-music. They overlap with cluster 0 in the PCA plot because their distinguishing features (speechiness, liveness) aren't captured well by PC1 and PC2, but in the full 9D space they form their own little pockets.
+
+A crosstab showed that K-Means cluster 4 (the speech-heavy one) mapped almost entirely to DBSCAN cluster 1, and everything else landed in DBSCAN cluster 0. Silhouette scores were 0.41 for DBSCAN vs 0.18 for K-Means on the same sample, but that's a bit misleading since DBSCAN puts 98.5\% of tracks into one cluster. It's easier to get a high silhouette when you're only separating out tiny, well-isolated groups.
+
+The 144 noise points were mostly sleep tracks (65), comedy (10), and iranian music (10). Sleep tracks have very low energy and near-zero loudness. Comedy is basically spoken word. Iranian music has unusual tonal combinations. All of them sit far from typical musical audio profiles.
+
+\subsection{Decision Trees on Cluster Labels}
+
+A decision tree (depth 4) was trained on the 9 audio features using K-Means cluster labels as the target. This isn't really a prediction task, the clusters came from K-Means, so the tree is just an interpretability tool to get readable rules for what makes each cluster different.
+
+Training accuracy was about 85\%, which is good enough to trust the rules without being overfit at such a shallow depth.
+
+Energy was the biggest feature (29\% importance), followed by valence (28\%), instrumentalness (15\%), and danceability (14\%). Tempo and liveness contributed basically nothing.
+
+Training on the original (unscaled) features gave more readable thresholds. The first split is energy at 0.55 (roughly the median). Below that, instrumentalness above 0.53 picks out the ambient/classical cluster, and acousticness above 0.34 separates the softer acoustic stuff. Above 0.55 energy, valence at 0.51 separates dark/intense from upbeat, and speechiness above 0.55 isolates comedy and hip-hop.
+
+The genre breakdown backed this up. Cluster 3 is 12\% sleep, 11\% new-age, 10\% ambient, 9\% classical, matching the low-energy, high-instrumentalness path through the tree. Cluster 4 is 73\% comedy, matching the speechiness threshold. Clusters 0, 1, and 2 are more mixed, with no genre above 4\%.
+
+\subsection{Anomaly Detection (LOF)}
+
+Local Outlier Factor was run on a separate 20,000-track sample with 2\% contamination, flagging 400 tracks. LOF looks at how isolated each point is relative to its neighbors, so it catches things in low-density areas even if they're not far from the center overall.
+
+The anomalies were noticeably different from the average track: louder at $-14$ dB vs $-8.5$ dB overall, more acoustic (0.52 vs 0.33), more instrumental (0.37 vs 0.17), and lower valence. They tend to be either very quiet/ambient or very talky.
+
+The top genres were sleep (53), iranian (27), chill (17), classical (16), and tango (11), same genres that showed up as DBSCAN noise. Running LOF on the same 20k sample as DBSCAN, about 54\% of DBSCAN noise points were also LOF anomalies. LOF caught more overall (400 vs 144), which makes sense since it uses local density rather than one global eps threshold. The overlap makes sense since both methods are looking for similar things in different ways.
+
+Figure~\ref{fig:lof} shows the anomalies in PCA space. They scatter around the edges rather than forming their own cluster, so they're unusual in different ways, not a hidden subgroup.
+
+\section{Results}
+
+\subsection{Cluster Comparison}
+Figure~\ref{fig:dbscan} shows the same 20,000-track sample colored by K-Means (left) and DBSCAN (right) in PCA space. K-Means divides the space into five colored regions; DBSCAN treats nearly all of it as one cluster (blue), with a small red cluster in the upper area and noise points (black X markers) at the periphery. The one area where both methods agree is the small speechiness-driven cluster in the upper portion of the plot, which is the hip-hop/rap group.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig15_dbscan_vs_kmeans.png}
+\caption{K-Means vs DBSCAN in PCA space (20k sample). K-Means partitions the space into 5 groups; DBSCAN finds one dominant cluster with noise points on the edges.}
+\label{fig:dbscan}
+\end{figure}
+
+\subsection{Decision Rules}
+Figure~\ref{fig:importances} shows feature importances from the depth-4 decision tree. Energy and valence together account for over half the total importance, consistent with PCA where the first two components loaded on these same features. The four features that matter (energy, valence, instrumentalness, danceability) are enough to produce readable rules for each cluster. Features like tempo and liveness, despite being included in the clustering, turn out to be redundant for distinguishing the groups.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig16_feature_importances.png}
+\caption{Feature importances from the decision tree. Energy and valence dominate the splits.}
+\label{fig:importances}
+\end{figure}
+
+\subsection{Anomaly Landscape}
+Figure~\ref{fig:lof} shows LOF anomalies in PCA space. They don't form their own cluster, they're scattered around the edges. Rain sounds from the sleep genre, classical orchestral excerpts, comedy spoken word, and genre hybrids like high-speechiness drum-and-bass all get flagged for different reasons. Put simply, anomalies in a music dataset aren't errors and are instead just the abnormal stuff: ambient soundscapes, spoken word, and tracks that don't fit any audio archetype.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig18_lof_anomalies.png}
+\caption{LOF anomalies (red) in PCA space. Anomalies scatter at the edges rather than grouping together.}
+\label{fig:lof}
+\end{figure}
+
+\section{Discovery Question Progress}
+
+\textbf{Primary: What natural clusters emerge from audio features, and how do they align with genre labels?} K-Means finds 5 groups with distinct audio profiles, but DBSCAN shows these aren't really density-separated clusters and it's more of a continuous distribution that K-Means carves up. Genre labels don't map cleanly to clusters either way. Figure~\ref{fig:heatmap} (from the initial exploration) shows the top 12 genres spread across multiple clusters. Pop/electronic/dance overlap a lot, while classical and hip-hop are the most cluster-pure. DBSCAN reinforces this: if genres were truly distinct audio populations, DBSCAN would find more than one dense region.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{outputs/figures/fig14_genre_cluster_heatmap.png}
+\caption{Genre distribution across K-Means clusters (from initial exploration). Most genres span 3+ clusters.}
+\label{fig:heatmap}
+\end{figure}
+
+\textbf{Supporting 1: Latent dimensions.} Answered in the initial exploration via PCA. First axis is acoustic vs produced, second is upbeat vs moody. Together they explain about 48\% of variance. The decision tree independently confirmed that energy and valence are the most important features for splitting clusters, which lines up with the PCA loadings.
+
+\textbf{Supporting 2: Decision rules for each cluster.} Answered here. The depth-4 tree gets about 85\% accuracy with readable rules. Each cluster can be described with 2 to 3 feature thresholds. Energy is the primary split, valence and danceability handle the secondary ones, and speechiness isolates the hip-hop/comedy cluster. Cluster 3 is basically ``low energy, high instrumentalness, quiet'' which anyone would recognize as ambient or classical.
+
+The different techniques kept agreeing with each other. PCA and the decision tree both pointed to energy and valence as the main differentiators. LOF and DBSCAN both flagged the same genres as unusual. K-Means and DBSCAN disagree on how many clusters there are, but agree on which tracks are most distinct from the mainstream.
+
+\section{Plan for Final Report}
+
+The technical work is done. What's left:
+\begin{enumerate}
+    \item \textbf{Limitations:} K-Means assumes spherical clusters, DBSCAN is sensitive to eps, PCA loses over half the variance, and audio features can't capture lyrics or cultural context. Also need to address whether sampling for DBSCAN/LOF introduces any bias.
+    \item \textbf{Genre grouping:} 113 genres is too granular. Grouping into broader families (rock/metal/punk, electronic/house/techno, etc.) would make the genre-cluster comparison cleaner.
+    \item \textbf{Polish:} Standardize colors and figure sizing, add annotations.
+    \item \textbf{Final report:} Tie everything together into a coherent narrative about how audio features create a continuous space where genre boundaries blur.
+\end{enumerate}
+
+\section{Repository}
+
+\begin{itemize}
+    \item \textbf{URL:} \url{https://github.com/sarbaniadhikari/cs4412-project-sarbani}
+    \item \textbf{Structure:} \texttt{data/}, \texttt{notebooks/}, \texttt{docs/}, \texttt{outputs/figures/}
+    \item \textbf{Notebooks:} \texttt{analysis\_v1.ipynb} (initial exploration), \texttt{analysis\_v2.ipynb} (complete implementation)
+\end{itemize}
+
+\begin{thebibliography}{00}
+\bibitem{b1} M. Pandya, ``Spotify Tracks Dataset,'' Kaggle, 2022. Available: \url{https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset}
+\end{thebibliography}
+
+\end{document}
