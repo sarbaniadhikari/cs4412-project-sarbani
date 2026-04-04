@@ -12,15 +12,15 @@ This project applies data mining techniques to the [Spotify Tracks Dataset](http
 ## Discovery Questions
 
 1. **Primary:** What natural clusters of songs emerge from audio features, and how do these clusters align or conflict with Spotify's genre labels?
-2. **Supporting:** What latent dimensions underlie the audio feature space? (with PCA)
-3. **Supporting:** What decision rules characterize each cluster's audio profile? (in work)
+2. **Supporting:** What latent dimensions underlie the audio feature space? (answered via PCA)
+3. **Supporting:** What decision rules characterize each cluster's audio profile? (answered via decision trees)
 
 ## Dataset
 
 - **Source:** [Spotify Tracks Dataset on Kaggle](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset)
 - **Size:** ~114,000 rows × 20 columns (~15 MB)
-- **Unique Artists:** ~31,000
-- **Unique Genres:** 114
+- **After dedup:** 89,740 tracks × 20 columns
+- **Unique Genres:** 113
 
 ### Key Audio Features
 
@@ -46,12 +46,17 @@ cs4412-project-sarbani/
 ├── data/
 │   └── .gitkeep               # Dataset not tracked (see instructions below)
 ├── docs/
-│   ├── proposal.pdf           # M1 proposal document
-│   └── M2_Summary.pdf         # M2 summary document
+│   ├── proposal.pdf           # Proposal document
+│   ├── proposal.tex
+│   ├── initial_implementation.pdf  # Initial implementation summary
+│   ├── initial_implementation.tex
+│   ├── complete_implementation.pdf # Complete implementation summary
+│   └── complete_implementation.tex
 ├── notebooks/
-│   └── M2_Analysis.ipynb      # M2 analysis notebook (EDA, preprocessing, clustering)
+│   ├── analysis_v1.ipynb      # Initial implementation (EDA, preprocessing, K-Means)
+│   └── analysis_v2.ipynb      # Complete implementation (DBSCAN, decision trees, LOF)
 └── outputs/
-    └── figures/               # Generated visualizations
+    └── figures/               # Generated visualizations (fig1-fig18)
 ```
 
 ## Setup & Installation
@@ -86,9 +91,10 @@ cs4412-project-sarbani/
    - Download `dataset.csv`
    - Place it in the `data/` folder
 
-5. **Run the notebook:**
+5. **Run the notebooks:**
    ```bash
-   jupyter notebook notebooks/M2_Analysis.ipynb
+   jupyter notebook notebooks/analysis_v1.ipynb  # initial implementation
+   jupyter notebook notebooks/analysis_v2.ipynb  # complete implementation
    ```
 
 ## Milestone Progress
@@ -100,19 +106,20 @@ cs4412-project-sarbani/
 
 ### Initial Implementation
 - **EDA:** 14 visualizations exploring distributions, correlations, genre profiles, duration, and feature relationships
-- **Preprocessing:** Dropped 1–3 rows with missing metadata, removed 24,259 duplicate track_ids, outlier assessment (retained as legitimate variation), z-score standardization
-- **PCA:** Identified two key latent dimensions — "Acoustic ↔ Produced" (PC1) and "Upbeat ↔ Moody" (PC2)
+- **Preprocessing:** Dropped 1-3 rows with missing metadata, removed 24,259 duplicate track_ids, outlier assessment (retained as legitimate variation), z-score standardization
+- **PCA:** Identified two key latent dimensions -- "Acoustic vs Produced" (PC1) and "Upbeat vs Moody" (PC2)
 - **Clustering:** K-Means with k=5, selected via elbow method and silhouette analysis
 - **Findings:** Five distinct sonic archetypes discovered; genre labels do not map neatly onto audio-based clusters, confirming cross-genre patterns
 
-### Advanced Analysis (In work)
-- DBSCAN clustering for comparison with K-Means
-- Decision tree classification to generate interpretable cluster rules
-- Anomaly detection for genre-defying tracks
-- Broader genre groupings for more meaningful cluster-genre comparison
+### Complete Implementation
+- **DBSCAN:** Compared density-based clustering with K-Means on a 20k sample. DBSCAN finds one dominant cluster with small speech-heavy offshoots, confirming that K-Means partitions a continuous space rather than finding truly separated groups. Noise points dominated by sleep, comedy, and iranian music.
+- **Decision Trees:** Depth-4 tree on K-Means cluster labels achieves ~85% training accuracy. Energy and valence are the top splitting features. Each cluster can be described by 2-3 feature thresholds in plain English.
+- **Anomaly Detection (LOF):** Local Outlier Factor flagged ~2% of tracks as anomalies. These tend to be quieter, more acoustic/instrumental, and higher speechiness. About half overlap with DBSCAN noise points. Anomalies scatter on the edges of PCA space rather than forming a hidden cluster.
+- **Discovery Questions:** All three questions now have substantive answers.
 
 ### Final Report (In work)
 - Complete analysis synthesis
+- Limitations discussion
 - Final report and presentation
 
 ## Tools & Libraries
@@ -123,6 +130,6 @@ cs4412-project-sarbani/
 | numpy | Numerical operations |
 | matplotlib | Visualization |
 | seaborn | Statistical visualization |
-| scikit-learn | Clustering, PCA, preprocessing, evaluation metrics |
-| mlxtend | Association rules (part 3) |
+| scikit-learn | Clustering, PCA, classification, anomaly detection, preprocessing |
 | jupyter | Interactive notebook environment |
+
