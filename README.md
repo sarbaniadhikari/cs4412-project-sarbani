@@ -54,8 +54,8 @@ cs4412-project-sarbani/
 │   ├── initial_implementation.tex
 │   ├── complete_implementation.pdf # Complete implementation summary
 │   ├── complete_implementation.tex
-│   ├── final_report_clean.pdf      # Final report (M4)
-│   └── final_report_clean.tex
+│   ├── final_report.pdf            # Final report (M4)
+│   └── final_report.tex
 ├── notebooks/
 │   └── analysis_combined.ipynb     # Canonical notebook: EDA, PCA, K-Means, DBSCAN,
 │                                   # decision trees, LOF, M4 validation, family analysis
