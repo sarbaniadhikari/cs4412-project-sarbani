@@ -59,8 +59,6 @@ cs4412-project-sarbani/
 ├── notebooks/
 │   └── analysis_combined.ipynb     # Canonical notebook: EDA, PCA, K-Means, DBSCAN,
 │                                   # decision trees, LOF, M4 validation, family analysis
-├── slides/
-│   └── m4_slides.pptx              # Final presentation deck (11 slides)
 └── outputs/
     └── figures/                    # Generated visualizations (fig1–fig21)
 ```
