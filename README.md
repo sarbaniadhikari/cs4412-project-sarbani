@@ -11,16 +11,18 @@ This project applies data mining techniques to the [Spotify Tracks Dataset](http
 
 ## Discovery Questions
 
-1. **Primary:** What natural clusters of songs emerge from audio features, and how do these clusters align or conflict with Spotify's genre labels?
+1. **Primary:** What natural clusters of songs emerge from audio features, and how do these clusters align or conflict with Spotify's genre labels? (answered via K-Means + DBSCAN + genre family analysis)
 2. **Supporting:** What latent dimensions underlie the audio feature space? (answered via PCA)
 3. **Supporting:** What decision rules characterize each cluster's audio profile? (answered via decision trees)
+
+All three questions are answered substantively in the final report.
 
 ## Dataset
 
 - **Source:** [Spotify Tracks Dataset on Kaggle](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset)
 - **Size:** ~114,000 rows × 20 columns (~15 MB)
 - **After dedup:** 89,740 tracks × 20 columns
-- **Unique Genres:** 113
+- **Unique Genres:** 113 (mapped to 14 broader families for M4)
 
 ### Key Audio Features
 
@@ -40,23 +42,27 @@ This project applies data mining techniques to the [Spotify Tracks Dataset](http
 
 ```
 cs4412-project-sarbani/
-├── README.md                  # This file
-├── requirements.txt           # Python dependencies
-├── .gitignore                 # Git ignore rules
+├── README.md                       # This file
+├── requirements.txt                # Python dependencies
+├── .gitignore                      # Git ignore rules
 ├── data/
-│   └── .gitkeep               # Dataset not tracked (see instructions below)
+│   └── .gitkeep                    # Dataset not tracked (see instructions below)
 ├── docs/
-│   ├── proposal.pdf           # Proposal document
+│   ├── proposal.pdf                # Proposal document
 │   ├── proposal.tex
 │   ├── initial_implementation.pdf  # Initial implementation summary
 │   ├── initial_implementation.tex
 │   ├── complete_implementation.pdf # Complete implementation summary
-│   └── complete_implementation.tex
+│   ├── complete_implementation.tex
+│   ├── final_report_clean.pdf      # Final report (M4)
+│   └── final_report_clean.tex
 ├── notebooks/
-│   ├── analysis_v1.ipynb      # Initial implementation (EDA, preprocessing, K-Means)
-│   └── analysis_v2.ipynb      # Complete implementation (DBSCAN, decision trees, LOF)
+│   └── analysis_combined.ipynb     # Canonical notebook: EDA, PCA, K-Means, DBSCAN,
+│                                   # decision trees, LOF, M4 validation, family analysis
+├── slides/
+│   └── m4_slides.pptx              # Final presentation deck (11 slides)
 └── outputs/
-    └── figures/               # Generated visualizations (fig1-fig18)
+    └── figures/                    # Generated visualizations (fig1–fig21)
 ```
 
 ## Setup & Installation
@@ -91,10 +97,14 @@ cs4412-project-sarbani/
    - Download `dataset.csv`
    - Place it in the `data/` folder
 
-5. **Run the notebooks:**
+5. **Run the notebook:**
    ```bash
-   jupyter notebook notebooks/analysis_v1.ipynb  # initial implementation
-   jupyter notebook notebooks/analysis_v2.ipynb  # complete implementation
+   jupyter notebook notebooks/analysis_combined.ipynb
+   ```
+
+6. **Compile the final report (optional):**
+   ```bash
+   pdflatex -output-directory=docs docs/final_report_clean.tex
    ```
 
 ## Milestone Progress
@@ -107,7 +117,7 @@ cs4412-project-sarbani/
 ### Initial Implementation
 - **EDA:** 14 visualizations exploring distributions, correlations, genre profiles, duration, and feature relationships
 - **Preprocessing:** Dropped 1-3 rows with missing metadata, removed 24,259 duplicate track_ids, outlier assessment (retained as legitimate variation), z-score standardization
-- **PCA:** Identified two key latent dimensions -- "Acoustic vs Produced" (PC1) and "Upbeat vs Moody" (PC2)
+- **PCA:** Identified two key latent dimensions: "Acoustic vs Produced" (PC1) and "Upbeat vs Moody" (PC2)
 - **Clustering:** K-Means with k=5, selected via elbow method and silhouette analysis
 - **Findings:** Five distinct sonic archetypes discovered; genre labels do not map neatly onto audio-based clusters, confirming cross-genre patterns
 
@@ -117,10 +127,11 @@ cs4412-project-sarbani/
 - **Anomaly Detection (LOF):** Local Outlier Factor flagged ~2% of tracks as anomalies. These tend to be quieter, more acoustic/instrumental, and higher speechiness. About half overlap with DBSCAN noise points. Anomalies scatter on the edges of PCA space rather than forming a hidden cluster.
 - **Discovery Questions:** All three questions now have substantive answers.
 
-### Final Report (In work)
-- Complete analysis synthesis
-- Limitations discussion
-- Final report and presentation
+### Final Report
+- **K-Means stability validation:** Reran K-Means with five random seeds (0, 7, 42, 123, 2024). Pairwise Adjusted Rand Index has mean 0.9999 and minimum 0.9998, confirming the cluster structure is reproducible across initializations.
+- **Decision tree generalization:** Refit on a stratified 80/20 train/test split and evaluated with 5-fold cross-validation. Train 0.8473, test 0.8476, CV 0.8459 ± 0.0013. The depth-4 tree does not overfit. Caveat: cluster 4 (speech-heavy, ~1.2% of data) has 100% precision but only 11% recall on the test set, a depth-budget limitation rather than overfitting.
+- **Genre family taxonomy:** Hand-mapped 113 raw genres into 14 broader families (rock, metal, electronic, pop, hip-hop, jazz/blues/soul, classical/acoustic, ambient/chill, country/folk, reggae/dancehall, latin, world, spoken/other, film/anime). 100% coverage. Cluster purity ranking shows production-style families (metal 85%, hip-hop 76%) at the top and commercial mainstream families (pop, rock, electronic) at ~42%.
+- **Critical assessment:** Validity, limitations, and ethical considerations sections covering K-Means' geometric assumptions, DBSCAN's parameter sensitivity, audio features' inability to capture lyrics or cultural context, Spotify's catalog bias toward Western commercial music, and recommendation-system implications.
 
 ## Tools & Libraries
 
@@ -132,4 +143,3 @@ cs4412-project-sarbani/
 | seaborn | Statistical visualization |
 | scikit-learn | Clustering, PCA, classification, anomaly detection, preprocessing |
 | jupyter | Interactive notebook environment |
-
